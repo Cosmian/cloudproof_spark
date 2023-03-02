@@ -1,7 +1,6 @@
 package com.cosmian.cloudproof.spark;
 
 import com.cosmian.jna.covercrypt.CoverCrypt;
-import com.cosmian.jna.covercrypt.structs.DecryptedHeader;
 import com.cosmian.jna.covercrypt.structs.EncryptedHeader;
 import com.cosmian.jna.covercrypt.structs.Policy;
 import com.cosmian.utils.CloudproofException;
@@ -9,21 +8,16 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.crypto.*;
 import org.apache.parquet.hadoop.api.WriteSupport;
-import org.apache.parquet.crypto.keytools.PropertiesDrivenCryptoFactory;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, DecryptionPropertiesFactory {
     public static String COVER_CRYPT_PUBLIC_MASTER_KEY = "parquet.encryption.cover_crypt.public_master_key";
 
     public static String COVER_CRYPT_DECRYPTION_KEY = "parquet.encryption.cover_crypt.decryption_key";
     public static String COVER_CRYPT_POLICY = "parquet.encryption.cover_crypt.policy";
-    public static String COVER_CRYPT_PARTITIONS_ATTRIBUTES = "parquet.encryption.cover_crypt.partitions_attributes";
-    public static String COVER_CRYPT_COLUMNS_ATTRIBUTES = "parquet.encryption.cover_crypt.columns_attributes";
-
+    public static String COVER_CRYPT_ENCRYPTION_MAPPINGS = "parquet.encryption.cover_crypt.encryption_mappings";
 
     @Override
     public FileDecryptionProperties getFileDecryptionProperties(Configuration hadoopConfig, Path filePath) throws ParquetCryptoRuntimeException {
@@ -41,7 +35,7 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
                         try {
                             return CoverCrypt.decryptHeader(decryptionKeyBytes, keyMetaData, Optional.empty()).getSymmetricKey();
                         } catch (CloudproofException e) {
-                            throw new ParquetCryptoRuntimeException("Cannot decrypt with CoverCrypt", e);
+                            throw new KeyAccessDeniedException("Cannot decrypt with CoverCrypt", e);
                         }
                     }
                 })
@@ -64,66 +58,51 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
         Policy policy = new Policy(Base64.getDecoder().decode(policyBytes));
 
 
-        String partitionsAttributesAsString = fileHadoopConfig.get(COVER_CRYPT_PARTITIONS_ATTRIBUTES);
+        String partitionsAttributesAsString = fileHadoopConfig.get(COVER_CRYPT_ENCRYPTION_MAPPINGS);
         if (partitionsAttributesAsString == null) {
             throw new ParquetCryptoRuntimeException("Undefined Partitions Attributes");
         }
-        PartitionsAttributes partitionsAttributes = new PartitionsAttributes(partitionsAttributesAsString);
+        EncryptionMappings encryptionMappings = new EncryptionMappings(partitionsAttributesAsString);
 
-        Path partitions = tempFilePath.getParent();
-        List<String> policies = new ArrayList<>();
-        while(partitions != null){
-            String name = partitions.getName();
-            String[] info = name.split("=", 2);
+        Path folder = tempFilePath.getParent();
+        List<EncryptionMappings.Partition> partitions = new ArrayList<>();
+        while(folder != null){
+            String folderName = folder.getName();
+            String[] info = folderName.split("=");
 
             if (info.length != 2 || info[1].isEmpty()) {
                 break;
             }
 
-            System.out.println("- " + info[0] + " ||| " + info[1]);
-
-            {
-                String accessPolicy = partitionsAttributes.partitionsValuesMapping.get(info[0] + "=" + info[1]);
-                if (accessPolicy != null) {
-                    policies.add(accessPolicy);
-                    partitions = partitions.getParent();
-                    continue;
-                }
-            }
-
-            {
-                String accessPolicy = partitionsAttributes.partitionsDefaultMapping.get(info[0]);
-                if (accessPolicy != null) {
-                    policies.add(accessPolicy);
-                    partitions = partitions.getParent();
-                    continue;
-                }
-            }
-
-            {
-                String accessPolicyAxis = partitionsAttributes.partitionsDirectMapping.get(info[0]);
-                if (accessPolicyAxis != null) {
-                    policies.add(accessPolicyAxis + "::" + info[1]);
-                    partitions = partitions.getParent();
-                    continue;
-                }
-            }
-
-            partitions = partitions.getParent();
+            partitions.add(new EncryptionMappings.Partition(info[0], info[1]));
+            folder = folder.getParent();
         }
 
-        String accessPolicy = String.join(" && ", policies);
+        String accessPolicy = String.join(" && ", encryptionMappings.getPartitionsAccessPolicies(partitions));
 
         try {
             EncryptedHeader encryptedHeader = CoverCrypt.encryptHeader(policy, publicMasterKey, accessPolicy);
-
             byte[] footerKeyBytes = encryptedHeader.getSymmetricKey();
             byte[] footerKeyMetadata = encryptedHeader.getEncryptedHeaderBytes();
+
+            Map<ColumnPath, ColumnEncryptionProperties> encryptedColumns = new HashMap<>();
+            for (Map.Entry<String, String> columnMapping : encryptionMappings.columnsMapping.entrySet()) {
+                EncryptedHeader columnHeader = CoverCrypt.encryptHeader(policy, publicMasterKey, columnMapping.getValue());
+                byte[] columnKeyBytes = columnHeader.getSymmetricKey();
+                byte[] columnKeyMetadata = columnHeader.getEncryptedHeaderBytes();
+                encryptedColumns.put(
+                        ColumnPath.fromDotString(columnMapping.getKey()),
+                        ColumnEncryptionProperties.builder(columnMapping.getKey())
+                                .withKey(columnKeyBytes)
+                                .withKeyMetaData(columnKeyMetadata).build()
+                );
+            }
 
             ParquetCipher cipher = ParquetCipher.AES_GCM_V1;
             return FileEncryptionProperties.builder(footerKeyBytes)
                     .withFooterKeyMetadata(footerKeyMetadata)
                     .withAlgorithm(cipher)
+                    .withEncryptedColumns(encryptedColumns)
                     .build();
         } catch (CloudproofException e) {
             throw new ParquetCryptoRuntimeException("Cannot encrypt with CoverCrypt", e);

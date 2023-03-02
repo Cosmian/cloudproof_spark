@@ -1,43 +1,82 @@
 package com.cosmian.cloudproof.spark;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-public class PartitionsAttributes {
+public class EncryptionMappings {
     Map<String, String> partitionsValuesMapping = new HashMap<>();
     Map<String, String> partitionsDefaultMapping = new HashMap<>();
     Map<String, String> partitionsDirectMapping = new HashMap<>();
+    Map<String, String> columnsMapping = new HashMap<>();
 
-    public PartitionsAttributes() {}
+    public EncryptionMappings() {}
 
-    public PartitionsAttributes(String config) {
-        String[] blocks = config.split("\n\n", 3);
+    public EncryptionMappings(String config) {
+        String[] blocks = config.split("\n\n", 4);
 
-        if (blocks.length != 3) {
+        if (blocks.length != 4) {
             throw new RuntimeException("Config '" + config + "' is invalid (should contains 3 blocks, " + blocks.length + "received)");
         }
 
         partitionsValuesMapping = deserializeMap(blocks[0]);
         partitionsDefaultMapping = deserializeMap(blocks[1]);
         partitionsDirectMapping = deserializeMap(blocks[2]);
+        columnsMapping = deserializeMap(blocks[3]);
     }
 
-    public PartitionsAttributes addPartitionValueMapping(String partition, String accessPolicy) {
+    public EncryptionMappings addPartitionValueMapping(String partition, String accessPolicy) {
         partitionsValuesMapping.put(partition, accessPolicy);
         return this;
     }
 
-    public PartitionsAttributes addPartitionDefaultMapping(String partitionKey, String accessPolicy) {
+    public EncryptionMappings addPartitionDefaultMapping(String partitionKey, String accessPolicy) {
         partitionsDefaultMapping.put(partitionKey, accessPolicy);
         return this;
     }
 
 
-    public PartitionsAttributes addPartitionDirectMapping(String partitionKey, String accessPolicyAxis) {
+    public EncryptionMappings addPartitionDirectMapping(String partitionKey, String accessPolicyAxis) {
         partitionsDirectMapping.put(partitionKey, accessPolicyAxis);
         return this;
+    }
+
+
+    public EncryptionMappings addColumnMapping(String columnName, String accessPolicy) {
+        columnsMapping.put(columnName, accessPolicy);
+        return this;
+    }
+
+    public List<String> getPartitionsAccessPolicies(List<Partition> partitions) {
+        List<String> policies = new ArrayList<>();
+
+        for (Partition partition : partitions) {
+            {
+                String accessPolicy = partitionsValuesMapping.get(partition.name + "=" + partition.value);
+                if (accessPolicy != null) {
+                    policies.add(accessPolicy);
+                    continue;
+                }
+            }
+
+            {
+                String accessPolicy = partitionsDefaultMapping.get(partition.name);
+                if (accessPolicy != null) {
+                    policies.add(accessPolicy);
+                    continue;
+                }
+            }
+
+            {
+                String accessPolicyAxis = partitionsDirectMapping.get(partition.name);
+                if (accessPolicyAxis != null) {
+                    policies.add(accessPolicyAxis + "::" + partition.value);
+                }
+            }
+        }
+
+        return policies;
     }
 
     @Override
@@ -49,6 +88,8 @@ public class PartitionsAttributes {
         serializeMap(builder, partitionsDefaultMapping);
         builder.append("\n\n");
         serializeMap(builder, partitionsDirectMapping);
+        builder.append("\n\n");
+        serializeMap(builder, columnsMapping);
 
         return builder.toString();
     }
@@ -86,5 +127,15 @@ public class PartitionsAttributes {
         }
 
         return map;
+    }
+
+    static public class Partition {
+        public String name;
+        public String value;
+
+        public Partition(String name, String value) {
+            this.name = name;
+            this.value = value;
+        }
     }
 }

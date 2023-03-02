@@ -1,4 +1,4 @@
-name := "Simple Project"
+name := "CloudproofSpark"
 
 version := "1.0"
 
