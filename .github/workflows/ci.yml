@@ -1,0 +1,59 @@
+---
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: Java CI with Maven
+
+on: push
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - os: windows-2019
+          # - os: macos-12
+          - os: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache build
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.m2/repository
+            target
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          distribution: temurin
+          cache: maven
+
+      - name: sbt assembly
+        run: |
+          sbt assembly
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-100000.csv
+
+      - name: Tests No Encryption
+        run: |
+          sbt "test:testOnly *TestParquet"
+          du -shb out.parquet
+
+      - name: Tests AESGCM
+        run: |
+          sbt "test:testOnly *TestParquetAesGcm"
+          du -shb out.parquet.aesgcm
+
+      - name: Tests CoverCrypt Encryption
+        run: |
+          sbt "test:testOnly *TestCloud*"
+          du -shb out.parquet.cover_crypt

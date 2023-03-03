@@ -1,6 +1,9 @@
-*.parquet
+*.parquet*
 *.csv
 .idea
 .bsp
 target
 .vscode
+.bloop
+.metals
+project/
