@@ -48,46 +48,43 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
         long startTime = System.nanoTime();
         files.incrementAndGet();
 
+        // Fetch public master key
         String publicMasterKeyId = fileHadoopConfig.getTrimmed(COVER_CRYPT_PUBLIC_MASTER_KEY);
         if (publicMasterKeyId == null) {
             throw new ParquetCryptoRuntimeException("Undefined CoverCrypt public master key");
         }
         byte[] publicMasterKey = Base64.getDecoder().decode(publicMasterKeyId);
 
+        // Fetch cover crypt policy
         String policyBytes = fileHadoopConfig.getTrimmed(COVER_CRYPT_POLICY);
         if (policyBytes == null) {
             throw new ParquetCryptoRuntimeException("Undefined CoverCrypt policy");
         }
         Policy policy = new Policy(Base64.getDecoder().decode(policyBytes));
 
-
+        // Fetch encryption mappings from partition/columns to access policies
         String partitionsAttributesAsString = fileHadoopConfig.get(COVER_CRYPT_ENCRYPTION_MAPPINGS);
         if (partitionsAttributesAsString == null) {
             throw new ParquetCryptoRuntimeException("Undefined Partitions Attributes");
         }
         EncryptionMappings encryptionMappings = new EncryptionMappings(partitionsAttributesAsString);
 
-        Path folder = tempFilePath.getParent();
-        List<EncryptionMappings.Partition> partitions = new ArrayList<>();
-        while(folder != null){
-            String folderName = folder.getName();
-            String[] info = folderName.split("=");
-
-            if (info.length != 2 || info[1].isEmpty()) {
-                break;
-            }
-
-            partitions.add(new EncryptionMappings.Partition(info[0], info[1]));
-            folder = folder.getParent();
-        }
-
+        // This file belongs to specific partitions, from these partitions we can build an access policy.
+        List<EncryptionMappings.Partition> partitions = discoverPartitions(tempFilePath);
         String accessPolicy = String.join(" && ", encryptionMappings.getPartitionsAccessPolicies(partitions));
 
         try {
+            // Get the symmetric key for this specific access policy. The encrypted header bytes can only be decrypted
+            // by a user decryption key with the correct policy.
             EncryptedHeader encryptedHeader = CoverCrypt.encryptHeader(policy, publicMasterKey, accessPolicy);
             byte[] footerKeyBytes = encryptedHeader.getSymmetricKey();
             byte[] footerKeyMetadata = encryptedHeader.getEncryptedHeaderBytes();
 
+            FileEncryptionProperties.Builder fileEncryptionProperties = FileEncryptionProperties.builder(footerKeyBytes)
+                    .withFooterKeyMetadata(footerKeyMetadata)
+                    .withAlgorithm(ParquetCipher.AES_GCM_V1);
+
+            // Do the same for each column
             Map<ColumnPath, ColumnEncryptionProperties> encryptedColumns = new HashMap<>();
             for (Map.Entry<String, String> columnMapping : encryptionMappings.columnsMapping.entrySet()) {
                 EncryptedHeader columnHeader = CoverCrypt.encryptHeader(policy, publicMasterKey, columnMapping.getValue());
@@ -101,11 +98,6 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
                 );
             }
 
-            ParquetCipher cipher = ParquetCipher.AES_GCM_V1;
-            FileEncryptionProperties.Builder fileEncryptionProperties = FileEncryptionProperties.builder(footerKeyBytes)
-                    .withFooterKeyMetadata(footerKeyMetadata)
-                    .withAlgorithm(cipher);
-
             if (!encryptedColumns.isEmpty()) {
                 fileEncryptionProperties.withEncryptedColumns(encryptedColumns);
             }
@@ -117,5 +109,33 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
         } catch (CloudproofException e) {
             throw new ParquetCryptoRuntimeException("Cannot encrypt with CoverCrypt", e);
         }
+    }
+
+    /**
+     * Spark/Parquet doesn't provide a simple way to find in which partition a specific file
+     * is built. We need to parse the folder structure to discover the partitions.
+     * This method is working with a local filesystem but may be broken if the partitions doesn't
+     * appear inside the path like: "/home/…/xxx.parquet/Country=France/Size=Small/part-00000-7b1ec238-e9d7-4ab3-a7da-6d6db3f30c35.c000.snappy.parquet
+     * or if the folder name follow a different format.
+     *
+     * @param path Parquet filepath
+     * @return the list of partition for this specific file
+     */
+    private List<EncryptionMappings.Partition> discoverPartitions(Path path) {
+        Path folder = path.getParent();
+        List<EncryptionMappings.Partition> partitions = new ArrayList<>();
+        while(folder != null){
+            String folderName = folder.getName();
+            String[] info = folderName.split("=");
+
+            if (info.length != 2 || info[1].isEmpty()) {
+                break;
+            }
+
+            partitions.add(new EncryptionMappings.Partition(info[0], info[1]));
+            folder = folder.getParent();
+        }
+
+        return partitions;
     }
 }
