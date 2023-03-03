@@ -86,7 +86,7 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
 
             // Do the same for each column
             Map<ColumnPath, ColumnEncryptionProperties> encryptedColumns = new HashMap<>();
-            for (Map.Entry<String, String> columnMapping : encryptionMappings.columnsMapping.entrySet()) {
+            for (Map.Entry<String, String> columnMapping : encryptionMappings.getColumnsMapping().entrySet()) {
                 EncryptedHeader columnHeader = CoverCrypt.encryptHeader(policy, publicMasterKey, columnMapping.getValue());
                 byte[] columnKeyBytes = columnHeader.getSymmetricKey();
                 byte[] columnKeyMetadata = columnHeader.getEncryptedHeaderBytes();

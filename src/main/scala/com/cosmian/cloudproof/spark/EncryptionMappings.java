@@ -9,25 +9,26 @@ import java.util.Map;
  * This class is a simple data class to format/parse to/from String multiple mappings from partitions/columns to CoverCrypt access policies.
  * Since Hadoop configuration options don't allow anything other than a String, we print all the maps in different blocks divided by \n\n.
  * The elements inside the maps are each on one line, key and values are separated by \t. (This doesn't allow \t nor \n inside access policies or partitions/columns name/values)
+ * Right now, the `EncryptionMappings` is hard coded, but we could provide a way to specify a user class here to have more fine grain control over the mappings.
  */
 public class EncryptionMappings {
     /**
      * Association between "Country=France" and "Country::France" or
      * "Size=Big" and "Security::Secret".
      */
-    Map<String, String> partitionsValuesMapping = new HashMap<>();
+    private Map<String, String> partitionsValuesMapping = new HashMap<>();
 
     /**
      * Association between "Country" and "Country::Others". All partitions' values will be encrypted
      * with the same policy.
      */
-    Map<String, String> partitionsDefaultMapping = new HashMap<>();
+    private Map<String, String> partitionsDefaultMapping = new HashMap<>();
 
     /**
      * Association between "Size" and "Security" where all "Size"'s partition values match 1-1 to an attribute
      * inside the "Security" axis. For example "Size::Small" will be encrypted with "Security::Small", etc.
      */
-    Map<String, String> partitionsDirectMapping = new HashMap<>();
+    private Map<String, String> partitionsDirectMapping = new HashMap<>();
 
     /**
      * Association between "Name" and "Security::Secret". The column "Name" will be encrypted with the access policy
@@ -35,7 +36,7 @@ public class EncryptionMappings {
      * If the column is not present inside this mappings map, the column will remain unencrypted (the file will be encrypted
      * following the partitions' mappings). We may provide a way in the future to add a default policy for the remaining columns.
      */
-    Map<String, String> columnsMapping = new HashMap<>();
+    private Map<String, String> columnsMapping = new HashMap<>();
 
     public EncryptionMappings() {}
 
@@ -111,6 +112,10 @@ public class EncryptionMappings {
         }
 
         return policies;
+    }
+
+    public Map<String, String> getColumnsMapping() {
+        return columnsMapping;
     }
 
     @Override
