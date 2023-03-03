@@ -12,3 +12,24 @@
 - `src/main/scala/CloudproofSpark.scala` is the main entrypoint, it contains the Spark code to read the CSV, write the encrypted parquet files and read the encrypted parquet files again (with different keys)
 - `src/main/scala/com/cosmian/cloudproof/spark/CoverCryptCryptoFactory.java` is the class responsible to encrypt/decrypt the files and the columns with CoverCrypt
 - `src/main/scala/com/cosmian/cloudproof/spark/EncryptionMapping.java` is simple class to encapsulate the mapping in a string form (because Spark config is only working with strings), read it and choose the correct policy for a specific file/column.
+
+## Benchmarks
+
+### Sizes
+
+- CSV: 14M
+- Unencrypted: 24M
+- Files encrypted: 34M
+- Files and columns encrypted: 48M
+
+### Full Timings (boot Spark / read CSV / write Parquet)
+
+- Unencrypted: 36s
+- Files encrypted: 36s
+- Files and columns encrypted: 39s
+
+### Time spent inside our code
+
+- Unencrypted: 0s
+- Files encrypted: 1.2s
+- Files and columns encrypted: 4s

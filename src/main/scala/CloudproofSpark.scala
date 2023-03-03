@@ -118,6 +118,9 @@ object CloudproofSpark {
     log(result2);
 
     spark.stop()
+
+    log(CoverCryptCryptoFactory.files);
+    log(CoverCryptCryptoFactory.timings.get() / 1000000000.0 + "s");
   }
 
   private def log(message: Any): Unit = {

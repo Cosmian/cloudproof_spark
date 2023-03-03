@@ -11,13 +11,17 @@ import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, DecryptionPropertiesFactory {
     public static String COVER_CRYPT_PUBLIC_MASTER_KEY = "parquet.encryption.cover_crypt.public_master_key";
-
     public static String COVER_CRYPT_DECRYPTION_KEY = "parquet.encryption.cover_crypt.decryption_key";
     public static String COVER_CRYPT_POLICY = "parquet.encryption.cover_crypt.policy";
     public static String COVER_CRYPT_ENCRYPTION_MAPPINGS = "parquet.encryption.cover_crypt.encryption_mappings";
+
+    public static AtomicInteger files = new AtomicInteger();
+    public static AtomicLong timings = new AtomicLong();
 
     @Override
     public FileDecryptionProperties getFileDecryptionProperties(Configuration hadoopConfig, Path filePath) throws ParquetCryptoRuntimeException {
@@ -28,15 +32,11 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
         byte[] decryptionKeyBytes = Base64.getDecoder().decode(decryptionKeyId);
 
         return FileDecryptionProperties.builder()
-                .withKeyRetriever(new DecryptionKeyRetriever() {
-                    @Override
-                    public byte[] getKey(byte[] keyMetaData)
-                            throws KeyAccessDeniedException, ParquetCryptoRuntimeException {
-                        try {
-                            return CoverCrypt.decryptHeader(decryptionKeyBytes, keyMetaData, Optional.empty()).getSymmetricKey();
-                        } catch (CloudproofException e) {
-                            throw new KeyAccessDeniedException("Cannot decrypt with CoverCrypt", e);
-                        }
+                .withKeyRetriever(keyMetaData -> {
+                    try {
+                        return CoverCrypt.decryptHeader(decryptionKeyBytes, keyMetaData, Optional.empty()).getSymmetricKey();
+                    } catch (CloudproofException e) {
+                        throw new KeyAccessDeniedException("Cannot decrypt with CoverCrypt", e);
                     }
                 })
                 .withPlaintextFilesAllowed()
@@ -45,6 +45,9 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
 
     @Override
     public FileEncryptionProperties getFileEncryptionProperties(Configuration fileHadoopConfig, Path tempFilePath, WriteSupport.WriteContext fileWriteContext) throws ParquetCryptoRuntimeException {
+        long startTime = System.nanoTime();
+        files.incrementAndGet();
+
         String publicMasterKeyId = fileHadoopConfig.getTrimmed(COVER_CRYPT_PUBLIC_MASTER_KEY);
         if (publicMasterKeyId == null) {
             throw new ParquetCryptoRuntimeException("Undefined CoverCrypt public master key");
@@ -99,11 +102,18 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
             }
 
             ParquetCipher cipher = ParquetCipher.AES_GCM_V1;
-            return FileEncryptionProperties.builder(footerKeyBytes)
+            FileEncryptionProperties.Builder fileEncryptionProperties = FileEncryptionProperties.builder(footerKeyBytes)
                     .withFooterKeyMetadata(footerKeyMetadata)
-                    .withAlgorithm(cipher)
-                    .withEncryptedColumns(encryptedColumns)
-                    .build();
+                    .withAlgorithm(cipher);
+
+            if (!encryptedColumns.isEmpty()) {
+                fileEncryptionProperties.withEncryptedColumns(encryptedColumns);
+            }
+
+            long endTime = System.nanoTime();
+            timings.addAndGet(endTime - startTime);
+
+            return fileEncryptionProperties.build();
         } catch (CloudproofException e) {
             throw new ParquetCryptoRuntimeException("Cannot encrypt with CoverCrypt", e);
         }
