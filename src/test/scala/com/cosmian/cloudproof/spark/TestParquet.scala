@@ -67,7 +67,7 @@ class TestParquet extends AnyFunSuite with BeforeAndAfterEach {
       .format("parquet")
       .partitionBy("Country", "Size")
       .mode(SaveMode.Overwrite)
-      .parquet("out.parquet")
+      .parquet("out.parquet.raw")
   }
 
 }

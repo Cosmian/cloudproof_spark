@@ -27,18 +27,15 @@ The size of the CSV file `organizations-100000.csv` is 14MB.
 
 | -                     | Unencrypted | AES256-GCM files encryption | CoverCrypt files and columns encryption |
 |-----------------------|-------------|-----------------------------|-----------------------------------------|
-| Size of out.parquet   | 14196468    | 18191447                    | 28772947                                |
-| Full Timings          | 24s         | 24s                         | 27s                                     |
-| Timings on Encryption | 0s          | 0.010529295s                | 3.611999342s                            |
+| Size of out.parquet   | 14M         | 18M                         | 28M                                     |
+| Full Timings          | 23s         | 23s                         | 26s                                     |
+| Timings on Encryption | 0s          | 0.0047s                     | 3.0s                                    |
 
 ---
-Full Timings: boot Spark / read CSV / write Parquet
-CPU: Intel(R) Xeon(R) Platinum 8171M CPU @ 2.60GHz
+- Full Timings: boot Spark / read CSV / write Parquet
+- CPU: Intel(R) Xeon(R) Platinum 8171M CPU @ 2.60GHz.
 
 ## Testing
-
-You need to have a local spark-3.2.1-bin-hadoop3.3 installation.
-See these [instructions](https://spark.apache.org/downloads.html) to download and install.
 
 To test the [TestCloudproof.scala](./src/test/scala/com/cosmian/cloudproof/spark/TestCloudproof.scala), run
 

@@ -1,7 +1,15 @@
 ---
-name: Spark CI
+# This workflow will build a Spark project with sbt, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-on: push
+name: sbt CI
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        required: true
+        type: string
 
 jobs:
   sbt:
@@ -42,24 +50,4 @@ jobs:
       - name: Download dataset
         run: wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-100000.csv
 
-      - name: Assembly it and run it
-        run: |
-          sbt assembly
-          spark-submit --class "CloudproofSpark" target/scala-2.12/CloudproofSpark-assembly-1.0.jar
-
-      - run: cat /proc/cpuinfo
-
-      - name: Bench without encryption
-        run: |
-            sbt "test:testOnly *TestParquet"
-            du -bch --apparent-size out.parquet.raw | tail -1
-
-      - name: Bench with AES256-GCM encryption
-        run: |
-          sbt "test:testOnly *TestParquetAesGcm"
-          du -bch --apparent-size out.parquet.aesgcm | tail -1
-
-      - name: Bench with Cloudproof
-        run: |
-          sbt "test:testOnly *TestCloud*"
-          du -bch --apparent-size out.parquet.cover_crypt | tail -1
+      - run: ${{ inputs.command }}
