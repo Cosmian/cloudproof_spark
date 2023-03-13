@@ -1,18 +1,31 @@
 package com.cosmian.cloudproof.spark;
 
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.crypto.ColumnEncryptionProperties;
+import org.apache.parquet.crypto.DecryptionPropertiesFactory;
+import org.apache.parquet.crypto.EncryptionPropertiesFactory;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.FileEncryptionProperties;
+import org.apache.parquet.crypto.KeyAccessDeniedException;
+import org.apache.parquet.crypto.ParquetCipher;
+import org.apache.parquet.crypto.ParquetCryptoRuntimeException;
+import org.apache.parquet.hadoop.api.WriteSupport;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
+
 import com.cosmian.jna.covercrypt.CoverCrypt;
 import com.cosmian.jna.covercrypt.structs.EncryptedHeader;
 import com.cosmian.jna.covercrypt.structs.Policy;
 import com.cosmian.utils.CloudproofException;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.parquet.crypto.*;
-import org.apache.parquet.hadoop.api.WriteSupport;
-import org.apache.parquet.hadoop.metadata.ColumnPath;
-
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, DecryptionPropertiesFactory {
     public static String COVER_CRYPT_PUBLIC_MASTER_KEY = "parquet.encryption.cover_crypt.public_master_key";
@@ -80,7 +93,8 @@ public class CoverCryptCryptoFactory implements EncryptionPropertiesFactory, Dec
             byte[] footerKeyBytes = encryptedHeader.getSymmetricKey();
             byte[] footerKeyMetadata = encryptedHeader.getEncryptedHeaderBytes();
 
-            FileEncryptionProperties.Builder fileEncryptionProperties = FileEncryptionProperties.builder(footerKeyBytes)
+            FileEncryptionProperties.Builder fileEncryptionProperties = FileEncryptionProperties
+                    .builder(footerKeyBytes)
                     .withFooterKeyMetadata(footerKeyMetadata)
                     .withAlgorithm(ParquetCipher.AES_GCM_V1);
 
