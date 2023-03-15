@@ -19,32 +19,40 @@ public class EncryptionMappings {
     private Map<String, String> partitionsValuesMapping = new HashMap<>();
 
     /**
-     * Association between "Country" and "Country::Others". All partitions' values will be encrypted
+     * Association between "Country" and "Country::Others". All partitions' values
+     * will be encrypted
      * with the same policy.
      */
     private Map<String, String> partitionsDefaultMapping = new HashMap<>();
 
     /**
-     * Association between "Size" and "Security" where all "Size"'s partition values match 1-1 to an attribute
-     * inside the "Security" axis. For example "Size::Small" will be encrypted with "Security::Small", etc.
+     * Association between "Size" and "Security" where all "Size"'s partition values
+     * match 1-1 to an attribute
+     * inside the "Security" axis. For example "Size::Small" will be encrypted with
+     * "Security::Small", etc.
      */
     private Map<String, String> partitionsDirectMapping = new HashMap<>();
 
     /**
-     * Association between "Name" and "Security::Secret". The column "Name" will be encrypted with the access policy
+     * Association between "Name" and "Security::Secret". The column "Name" will be
+     * encrypted with the access policy
      * "Security::Secret".
-     * If the column is not present inside this mappings map, the column will remain unencrypted (the file will be encrypted
-     * following the partitions' mappings). We may provide a way in the future to add a default policy for the remaining columns.
+     * If the column is not present inside this mappings map, the column will remain
+     * unencrypted (the file will be encrypted
+     * following the partitions' mappings). We may provide a way in the future to
+     * add a default policy for the remaining columns.
      */
     private Map<String, String> columnsMapping = new HashMap<>();
 
-    public EncryptionMappings() {}
+    public EncryptionMappings() {
+    }
 
     public EncryptionMappings(String config) {
         String[] blocks = config.split("\n\n", 4);
 
         if (blocks.length != 4) {
-            throw new RuntimeException("Config '" + config + "' is invalid (should contains 3 blocks, " + blocks.length + "received)");
+            throw new RuntimeException(
+                    "Config '" + config + "' is invalid (should contains 3 blocks, " + blocks.length + "received)");
         }
 
         partitionsValuesMapping = deserializeMap(blocks[0]);
@@ -58,25 +66,27 @@ public class EncryptionMappings {
         return this;
     }
 
-    public EncryptionMappings addPartitionDefaultMapping(String partitionKey, String accessPolicy) throws PartitionAlreadyExistsInAnotherMappingException {
+    public EncryptionMappings addPartitionDefaultMapping(String partitionKey, String accessPolicy)
+            throws PartitionAlreadyExistsInAnotherMappingException {
         if (partitionsDirectMapping.containsKey(partitionKey)) {
-            throw new PartitionAlreadyExistsInAnotherMappingException("Cannot a default mapping to partition " + partitionKey + " because this partition already exists inside the direct mapping.");
+            throw new PartitionAlreadyExistsInAnotherMappingException("Cannot a default mapping to partition "
+                    + partitionKey + " because this partition already exists inside the direct mapping.");
         }
 
         partitionsDefaultMapping.put(partitionKey, accessPolicy);
         return this;
     }
 
-
-    public EncryptionMappings addPartitionDirectMapping(String partitionKey, String accessPolicyAxis) throws PartitionAlreadyExistsInAnotherMappingException {
+    public EncryptionMappings addPartitionDirectMapping(String partitionKey, String accessPolicyAxis)
+            throws PartitionAlreadyExistsInAnotherMappingException {
         if (partitionsDefaultMapping.containsKey(partitionKey)) {
-            throw new PartitionAlreadyExistsInAnotherMappingException("Cannot a direct mapping to partition " + partitionKey + " because this partition already exists inside the default mapping.");
+            throw new PartitionAlreadyExistsInAnotherMappingException("Cannot a direct mapping to partition "
+                    + partitionKey + " because this partition already exists inside the default mapping.");
         }
 
         partitionsDirectMapping.put(partitionKey, accessPolicyAxis);
         return this;
     }
-
 
     public EncryptionMappings addColumnMapping(String columnName, String accessPolicy) {
         columnsMapping.put(columnName, accessPolicy);
@@ -137,7 +147,7 @@ public class EncryptionMappings {
         boolean first = true;
 
         for (Map.Entry<String, String> entry : map.entrySet()) {
-            if (! first) {
+            if (!first) {
                 builder.append('\n');
             }
             first = false;
@@ -159,7 +169,8 @@ public class EncryptionMappings {
             String[] info = line.split("\t");
 
             if (info.length != 2) {
-                throw new RuntimeException("Mapping '" + line + "' is invalid (should contains 2 \\t blocks) inside " + lines);
+                throw new RuntimeException(
+                        "Mapping '" + line + "' is invalid (should contains 2 \\t blocks) inside " + lines);
             }
 
             map.put(info[0], info[1]);

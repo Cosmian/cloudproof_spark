@@ -19,3 +19,8 @@ dependencyOverrides ++= Seq(
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.3" % "test",
   "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3" % "test"
 )
+
+// Test options
+Test / testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a", "-Dtest.time=true")
+Test / logBuffered := false
+Test / parallelExecution := false
