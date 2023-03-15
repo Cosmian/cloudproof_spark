@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.8"
+          python-version: 3.8
 
       - name: Set up JDK 8
         uses: actions/setup-java@v3
@@ -40,7 +40,14 @@ jobs:
       - run: spark-submit --version
 
       - name: Download dataset
-        run: wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-100000.csv
+        run: |
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-100000.csv
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-500000.zip
+          7za x organizations-500000.zip
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-1000000.zip
+          7za x organizations-1000000.zip
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-2000000.zip
+          7za x organizations-2000000.zip
 
       - name: Assembly it and run it
         run: |
@@ -49,17 +56,7 @@ jobs:
 
       - run: cat /proc/cpuinfo
 
-      - name: Bench without encryption
+      - name: Benches
         run: |
-            sbt "test:testOnly *TestParquet"
-            du -bch --apparent-size out.parquet.raw | tail -1
-
-      - name: Bench with AES256-GCM encryption
-        run: |
-          sbt "test:testOnly *TestParquetAesGcm"
-          du -bch --apparent-size out.parquet.aesgcm | tail -1
-
-      - name: Bench with Cloudproof
-        run: |
-          sbt "test:testOnly *TestCloud*"
-          du -bch --apparent-size out.parquet.cover_crypt | tail -1
+          sbt "test:testOnly -- -oD"
+          du -bch -d 0 out.parquet.*
