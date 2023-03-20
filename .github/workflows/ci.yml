@@ -1,0 +1,62 @@
+---
+name: Spark CI
+
+on: push
+
+jobs:
+  sbt:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache build
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.m2/repository
+            target
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          distribution: temurin
+          cache: maven
+
+      - uses: vemonet/setup-spark@v1
+        with:
+          spark-version: 3.3.2
+          hadoop-version: 3
+
+      - run: spark-submit --version
+
+      - name: Download dataset
+        run: |
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-100000.csv
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-500000.zip
+          7za x organizations-500000.zip
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-1000000.zip
+          7za x organizations-1000000.zip
+          wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/organizations-2000000.zip
+          7za x organizations-2000000.zip
+
+      - name: Assembly it and run it
+        run: |
+          sbt assembly
+          spark-submit --class "CloudproofSpark" target/scala-2.12/CloudproofSpark-assembly-1.0.0.jar
+
+      - run: cat /proc/cpuinfo
+
+      - name: Benches
+        run: |
+          sbt "test:testOnly -- -oD"
+          du -bch -d 0 out.parquet.*
