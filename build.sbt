@@ -1,6 +1,6 @@
 name := "CloudproofSpark"
 
-version := "1.0"
+version := "1.0.0"
 
 scalaVersion := "2.12.17"
 
@@ -11,7 +11,7 @@ assemblyMergeStrategy in assembly := {
 
 libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.3.2"
 libraryDependencies += "com.databricks" %% "spark-xml" % "0.16.0"
-libraryDependencies += "com.cosmian" % "cloudproof_java" % "4.0.1"
+libraryDependencies += "com.cosmian" % "cloudproof_java" % "5.0.0"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.11" % "test"
 
 // Fixes a problem with the Jackson version used by downgrading it

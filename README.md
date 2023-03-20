@@ -57,7 +57,7 @@ wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/
 7za x organizations-2000000.csv
 ```
 
-4/ Execute `sbt assembly && spark-submit --class "CloudproofSpark" --master "local[*]" target/scala-2.12/CloudproofSpark-assembly-1.0.jar`
+4/ Execute `sbt assembly && spark-submit --class "CloudproofSpark" --master "local[*]" target/scala-2.12/CloudproofSpark-assembly-1.0.0.jar`
 
 ## Reading the code
 
