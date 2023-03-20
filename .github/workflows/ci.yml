@@ -52,7 +52,7 @@ jobs:
       - name: Assembly it and run it
         run: |
           sbt assembly
-          spark-submit --class "CloudproofSpark" target/scala-2.12/CloudproofSpark-assembly-1.0.jar
+          spark-submit --class "CloudproofSpark" target/scala-2.12/CloudproofSpark-assembly-1.0.0.jar
 
       - run: cat /proc/cpuinfo
 
