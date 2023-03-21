@@ -51,8 +51,8 @@ jobs:
 
       - name: Assembly it and run it
         run: |
-          sbt assembly
-          spark-submit --class "CloudproofSpark" target/scala-2.12/CloudproofSpark-assembly-1.0.0.jar
+          mvn package
+          spark-submit --class "CloudproofSpark" --master "local[*]" target/cloudproof_spark-1.0.0.jar
 
       - run: cat /proc/cpuinfo
 
@@ -60,3 +60,40 @@ jobs:
         run: |
           sbt "test:testOnly -- -oD"
           du -bch -d 0 out.parquet.*
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Maven deploy
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg2
+          mkdir -p ~/.m2 ~/.gpg
+          echo "$M2_SETTINGS" > ~/.m2/settings.xml
+          echo "$MAVEN_GPG_PRIVATE_KEY" > ~/.gpg/maven_gpg_private_key.asc
+          mvn clean deploy -Dmaven.test.skip
+        env:
+          M2_SETTINGS: ${{ secrets.M2_SETTINGS }}
+          MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+
+  release:
+    needs:
+      - sbt
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+
+  cleanup:
+    needs:
+      - release
+    uses: Cosmian/reusable_workflows/.github/workflows/cleanup_cache.yml@main
+    secrets: inherit

@@ -2,7 +2,7 @@ name := "CloudproofSpark"
 
 version := "1.0.0"
 
-scalaVersion := "2.12.17"
+scalaVersion := "2.12.15"
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", _*) => MergeStrategy.discard
@@ -21,6 +21,11 @@ dependencyOverrides ++= Seq(
 )
 
 // Test options
-Test / testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a", "-Dtest.time=true")
+Test / testOptions += Tests.Argument(
+  TestFrameworks.JUnit,
+  "-v",
+  "-a",
+  "-Dtest.time=true"
+)
 Test / logBuffered := false
 Test / parallelExecution := false
