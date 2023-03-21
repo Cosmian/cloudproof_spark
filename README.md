@@ -11,6 +11,8 @@ Cloudproof Encryption secures data repositories and applications in the cloud wi
 - [Licensing](#licensing)
 - [Cryptographic primitives](#cryptographic-primitives)
 - [Getting Started](#getting-started)
+  * [Using in Java projects](#using-in-java-projects)
+  * [From this repository](#from-this-repository)
 - [Reading the code](#reading-the-code)
 - [Parquet format](#parquet-format)
 - [Benchmarks](#benchmarks)
@@ -36,11 +38,25 @@ The library is based on:
 creating ciphertexts for a set of attributes and issuing user keys with access
 policies over these attributes. `CoverCrypt` offers Post-Quantum resistance.
 
-- [Findex](https://github.com/Cosmian/findex) which is a cryptographic protocol designed to securely make search queries on
+<!-- - [Findex](https://github.com/Cosmian/findex) which is a cryptographic protocol designed to securely make search queries on
 an untrusted cloud server. Thanks to its encrypted indexes, large databases can
-securely be outsourced without compromising usability.
+securely be outsourced without compromising usability. -->
 
 ## Getting Started
+
+### Using in Java projects
+
+This library is open-source software and is available on Maven Central.
+
+```xml
+<dependency>
+    <groupId>com.cosmian.cloudproof.spark</groupId>
+    <artifactId>cloudproof_spark</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+### From this repository
 
 1/ Install SBT
 
@@ -57,7 +73,17 @@ wget https://github.com/datablist/sample-csv-files/raw/main/files/organizations/
 7za x organizations-2000000.csv
 ```
 
-4/ Execute `sbt assembly && spark-submit --class "CloudproofSpark" --master "local[*]" target/scala-2.12/CloudproofSpark-assembly-1.0.0.jar`
+4/ Execute:
+
+```bash
+mvn package && spark-submit --class "CloudproofSpark" --master "local[*]" target/cloudproof_spark-1.0.0.jar
+```
+
+or:
+
+```bash
+sbt assembly && spark-submit --class "CloudproofSpark" --master "local[*]" target/scala-2.12/CloudproofSpark-assembly-1.0.0.jar
+```
 
 ## Reading the code
 
